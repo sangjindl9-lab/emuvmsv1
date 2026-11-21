@@ -35,7 +35,7 @@ npm run build
 sh scripts/test-all.sh              # 위 전체 + next start + 시뮬레이터 + HTTP 스모크
 ```
 
-전체 실행 로그: [`docs/test-run.log`](test-run.log)
+전체 실행 로그: [`docs/test-run.txt`](test-run.txt)
 
 ## 3. 단위·소켓 테스트 상세
 

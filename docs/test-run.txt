@@ -1,0 +1,200 @@
+postgres ready on 127.0.0.1:55432
+NOTICE:  drop cascades to 34 other objects
+DETAIL:  drop cascades to table _prisma_migrations
+drop cascades to table tenants
+drop cascades to table users
+drop cascades to table roles
+drop cascades to table sites
+drop cascades to table buildings
+drop cascades to table floors
+drop cascades to table units
+drop cascades to table manufacturers
+drop cascades to table device_models
+drop cascades to table protocol_documents
+drop cascades to table protocol_drivers
+drop cascades to table driver_versions
+drop cascades to table device_profiles
+drop cascades to table gateways
+drop cascades to table devices
+drop cascades to table device_connections
+drop cascades to table serial_buses
+drop cascades to table device_tags
+drop cascades to table tag_mappings
+drop cascades to table tag_readings
+drop cascades to table meter_readings
+drop cascades to table meter_adjustments
+drop cascades to table tariff_versions
+drop cascades to table electrical_assets
+drop cascades to table diagrams
+drop cascades to table diagram_elements
+drop cascades to table alarm_rules
+drop cascades to table alarm_events
+drop cascades to table control_commands
+drop cascades to table control_approvals
+drop cascades to table control_feedback
+drop cascades to table audit_logs
+drop cascades to table licenses
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "eumbms_test", schema "public" at "127.0.0.1:55432"
+
+1 migration found in prisma/migrations
+
+Applying migration `20261121165649_init`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261121165649_init/
+    └─ migration.sql
+      
+All migrations have been successfully applied.
+EUMBMS 시드 시작
+시드 완료
+관리자: admin@eumbms.local / Eumbms!2026
+승인자: approver@eumbms.local / Eumbms!2026
+운전원: operator@eumbms.local / Eumbms!2026
+── 타입체크 ──
+── 단위·소켓 테스트 ──
+
+ RUN  v3.2.7 /workspace/eumbms
+
+[test] prisma migrate deploy → postgresql://postgres@127.0.0.1:55432/eumbms_test?schema=public
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "eumbms_test", schema "public" at "127.0.0.1:55432"
+
+1 migration found in prisma/migrations
+
+
+No pending migrations to apply.
+EUMBMS 시드 시작
+이미 시드된 테넌트(EUM)가 있습니다. 기존 데이터를 유지합니다.
+ ✓ tests/schema.test.ts (3 tests) 179ms
+ ✓ tests/modbus-socket.test.ts (5 tests) 89ms
+ ✓ tests/protocol.test.ts (26 tests) 15ms
+
+ Test Files  3 passed (3)
+      Tests  34 passed (34)
+   Start at  02:26:33
+   Duration  5.32s (transform 877ms, setup 0ms, collect 453ms, tests 283ms, environment 0ms, prepare 253ms)
+
+── 프로덕션 빌드 ──
+
+> eumbms@2.0.0 build
+> prisma generate && next build
+
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma/schema.prisma
+
+✔ Generated Prisma Client (v6.19.3) to ./node_modules/@prisma/client in 942ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+▲ Next.js 16.4.6 (Turbopack)
+- Environments: .env
+✓ Running next.config.ts took 132ms
+- Experiments (use with caution):
+  · serverActions
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 13.9s
+  Running TypeScript ...
+  Finished TypeScript in 6.1s ...
+  Collecting page data using 1 worker ...
+  Generating static pages using 1 worker (0/3) ...
+✓ Generating static pages using 1 worker (3/3) in 507ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /alarms
+├ ƒ /api/v1/[...path]
+├ ƒ /buildings
+├ ƒ /control
+├ ƒ /devices
+├ ƒ /diagrams
+├ ƒ /diagrams/[id]
+├ ƒ /energy
+├ ƒ /gateways
+├ ƒ /licenses
+├ ○ /login
+├ ƒ /metering
+├ ƒ /protocols
+├ ƒ /reports
+├ ƒ /scada
+├ ƒ /settings
+├ ƒ /sites
+├ ƒ /tags
+├ ƒ /tariffs
+└ ƒ /users
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+── 실제 서버 + Modbus 시뮬레이터 통합 스모크 ──
+PASS  health endpoint — http://127.0.0.1:3100
+PASS  로그인 (운전원) — OPERATOR
+PASS  로그인 (최고관리자) — SUPER_ADMIN
+PASS  통합 대시보드 조회 — 장치 2대, 태그 10개
+PASS  실시간 계측 조회
+PASS  서버 내장 수집기 → 실제 Modbus TCP 수집 — status 200 · 장치 2/2, 태그 10, 정상 10, 오류 0 
+PASS  수집값이 실제 소켓 응답(220V대)으로 저장됨 — 221.169998 V (GOOD)
+PASS  에너지 분석(월별 사용량/탄소) — 7개월, 19152kWh
+PASS  매뉴얼 업로드 → 분석 초안 생성 — status 200 · 레지스터 3개 
+PASS  프로파일 관리자 승인
+PASS  승인 프로파일 → 장치/태그 생성 — 태그 3개
+PASS  사용자 정의 프레임 실제 TCP 송수신 — status 200 · AA 55 01 03 00 2A 00 00 → 42
+PASS  제어 준비된 설비 조회 — 수전 VCB-1
+PASS  제어 요청 생성 (REQUESTED) — REQUESTED
+PASS  요청자 본인 승인 차단(권한 또는 자기승인 금지) — 권한이 없습니다: control.approve
+PASS  1차 승인
+PASS  2차 승인 → APPROVED
+PASS  제어 실행 → 피드백 확인 — FEEDBACK_OK / 정상
+PASS  중복 실행 차단 — 이미 실행된 명령입니다(상태: FEEDBACK_OK). 중복 실행하지 않습니다.
+PASS  차단기 최종 상태 OPEN 반영 — OPEN
+PASS  제어 복구(CLOSE) 피드백 — FEEDBACK_OK
+PASS  게이트웨이 등록 + 토큰 발급 — status 200 GW-87057269
+PASS  게이트웨이 핸드셰이크 — 장치 3대
+PASS  게이트웨이 수집값 수신(ingest) — stored=1
+PASS  잘못된 게이트웨이 토큰 차단
+PASS  조회자 사업장 등록 차단(403) — 권한이 없습니다: site.manage
+PASS  검침 보고서 CSV 생성 — 12행 (status 200) 
+PASS  제어 감사로그 기록
+
+=== 결과: 28/28 통과 ===
+PASS  /              200 14269b
+PASS  /sites         200 15191b
+PASS  /buildings     200 15853b
+PASS  /scada         200 17431b
+PASS  /diagrams      200 15870b
+PASS  /devices       200 15259b
+PASS  /gateways      200 18616b
+PASS  /protocols     200 15740b
+PASS  /tags          200 16030b
+PASS  /metering      200 16928b
+PASS  /tariffs       200 17429b
+PASS  /energy        200 14588b
+PASS  /alarms        200 16345b
+PASS  /control       200 16157b
+PASS  /reports       200 17079b
+PASS  /users         200 15534b
+PASS  /settings      200 14562b
+PASS  /licenses      200 16550b
+INFO  도면 ID cmwqojdxp008osc33fc6ty10h
+PASS  /diagrams/[id]  200 14969b
+
+=== 페이지 결과: 19/19 ===
