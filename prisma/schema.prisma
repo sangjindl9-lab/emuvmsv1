@@ -1,0 +1,898 @@
+// EUM BMS PRO (EUMBMS) — 데이터 모델
+// 마스터 프롬프트 14절의 필수 33개 테이블을 모두 구현한다.
+// 모든 장치·태그·검침 데이터는 tenant_id / site_id 기준으로 격리한다.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. 고객사(테넌트)
+model Tenant {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  businessNo String?
+  address    String?
+  phone      String?
+  plan       String   @default("STANDARD") // STANDARD | ENTERPRISE
+  status     String   @default("ACTIVE") // ACTIVE | SUSPENDED | CLOSED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  users         User[]
+  roles         Role[]
+  sites         Site[]
+  buildings     Building[]
+  floors        Floor[]
+  units         Unit[]
+  documents     ProtocolDocument[]
+  drivers       ProtocolDriver[]
+  driverVersions DriverVersion[]
+  profiles      DeviceProfile[]
+  gateways      Gateway[]
+  devices       Device[]
+  connections   DeviceConnection[]
+  serialBuses   SerialBus[]
+  tags          DeviceTag[]
+  tagMappings   TagMapping[]
+  tagReadings   TagReading[]
+  meterReadings MeterReading[]
+  adjustments   MeterAdjustment[]
+  tariffs       TariffVersion[]
+  assets        ElectricalAsset[]
+  diagrams      Diagram[]
+  elements      DiagramElement[]
+  alarmRules    AlarmRule[]
+  alarmEvents   AlarmEvent[]
+  commands      ControlCommand[]
+  approvals     ControlApproval[]
+  feedbacks     ControlFeedback[]
+  auditLogs     AuditLog[]
+  licenses      License[]
+
+  @@map("tenants")
+}
+
+// 2. 사용자
+model User {
+  id           String    @id @default(cuid())
+  tenantId     String
+  email        String
+  name         String
+  passwordHash String
+  phone        String?
+  status       String    @default("ACTIVE") // ACTIVE | INVITED | SUSPENDED
+  roleId       String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role          Role?             @relation(fields: [roleId], references: [id])
+  documents     ProtocolDocument[]
+  driverVersions DriverVersion[]
+  profiles      DeviceProfile[]
+  diagrams      Diagram[]
+  acknowledgements AlarmEvent[]   @relation("AlarmAck")
+  assignedAlarms AlarmEvent[]     @relation("AlarmAssignee")
+  commands      ControlCommand[]
+  approvals     ControlApproval[]
+  auditLogs     AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+// 3. 역할 / 권한
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  code        String
+  name        String
+  permissions String[] @default([])
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users  User[]
+
+  @@unique([tenantId, code])
+  @@map("roles")
+}
+
+// 4. 사업장
+model Site {
+  id             String   @id @default(cuid())
+  tenantId       String
+  code           String
+  name           String
+  address        String?
+  timezone       String   @default("Asia/Seoul")
+  contractPowerKw Float?
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  buildings  Building[]
+  gateways   Gateway[]
+  devices    Device[]
+  assets     ElectricalAsset[]
+  diagrams   Diagram[]
+  alarms     AlarmEvent[]
+  rules      AlarmRule[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("sites")
+}
+
+// 5. 건물
+model Building {
+  id           String   @id @default(cuid())
+  tenantId     String
+  siteId       String
+  code         String
+  name         String
+  purpose      String?  // APARTMENT | OFFICE | FACTORY | MIXED
+  floorsCount  Int      @default(0)
+  areaM2       Float?
+  createdAt    DateTime @default(now())
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site      Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  floors    Floor[]
+  units     Unit[]
+  devices   Device[]
+  assets    ElectricalAsset[]
+  readings  MeterReading[]
+
+  @@unique([siteId, code])
+  @@index([tenantId])
+  @@map("buildings")
+}
+
+// 6. 층
+model Floor {
+  id         String @id @default(cuid())
+  tenantId   String
+  buildingId String
+  level      Int
+  name       String
+
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  units    Unit[]
+  devices  Device[]
+
+  @@unique([buildingId, level])
+  @@index([tenantId])
+  @@map("floors")
+}
+
+// 7. 호실 / 세대
+model Unit {
+  id           String   @id @default(cuid())
+  tenantId     String
+  buildingId   String
+  floorId      String?
+  dong         String?
+  ho           String
+  name         String
+  areaM2       Float?
+  occupancy    String   @default("OCCUPIED") // OCCUPIED | VACANT
+  residentName String?
+  createdAt    DateTime @default(now())
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  building  Building   @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  floor     Floor?     @relation(fields: [floorId], references: [id])
+  devices   Device[]
+  readings  MeterReading[]
+  adjustments MeterAdjustment[]
+
+  @@unique([buildingId, dong, ho])
+  @@index([tenantId])
+  @@map("units")
+}
+
+// 8. 제조사
+model Manufacturer {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  nameKo    String?
+  country   String?
+  website   String?
+  note      String?
+
+  models    DeviceModel[]
+  documents ProtocolDocument[]
+  drivers   ProtocolDriver[]
+  profiles  DeviceProfile[]
+  devices   Device[]
+  @@map("manufacturers")
+}
+
+// 9. 장비 모델
+model DeviceModel {
+  id             String   @id @default(cuid())
+  manufacturerId String
+  name           String
+  category       String // PLC | RTU | METER | GATEWAY | PROTECTION_RELAY | UPS | GENERATOR | INVERTER | ESS | EV_CHARGER
+  protocols      String[] @default([])
+  docsUrl        String?
+  notes          String?
+
+  manufacturer Manufacturer @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+  profiles     DeviceProfile[]
+  devices      Device[]
+
+  @@unique([manufacturerId, name])
+  @@map("device_models")
+}
+
+// 10. 프로토콜 문서
+model ProtocolDocument {
+  id             String   @id @default(cuid())
+  tenantId       String
+  manufacturerId String?
+  title          String
+  docType        String // PDF | DOCX | XLSX | CSV | JSON | XML | TXT | ZIP
+  version        String?
+  url            String?
+  license        String? // PUBLIC | REDISTRIBUTABLE | RESTRICTED | UNKNOWN
+  accessType     String   @default("PUBLIC")
+  fileName       String?
+  fileHash       String?
+  extractedText  String?
+  analysis       Json?
+  status         String   @default("UPLOADED") // UPLOADED | EXTRACTED | DRAFTED | APPROVED | REJECTED
+  uploadedById   String?
+  createdAt      DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manufacturer Manufacturer? @relation(fields: [manufacturerId], references: [id])
+  uploadedBy   User?         @relation(fields: [uploadedById], references: [id])
+  profiles     DeviceProfile[]
+
+  @@index([tenantId])
+  @@map("protocol_documents")
+}
+
+// 11. 프로토콜 드라이버
+model ProtocolDriver {
+  id             String   @id @default(cuid())
+  tenantId       String
+  manufacturerId String?
+  key            String
+  name           String
+  protocolFamily String // MODBUS | BACNET | OPCUA | MQTT | DLMS | MBUS | IEC61850 | IEC60870 | DNP3 | S7 | MC | FINS | ETHERNETIP | ADS | VENDOR
+  transport      String // TCP | RTU | ASCII | RTU_OVER_TCP | UDP | SERIAL | MQTT | HTTP
+  status         String   @default("DOC_VERIFIED") // DOC_VERIFIED | IN_DEVELOPMENT | SIMULATOR_VERIFIED | FIELD_VERIFIED | PARTIAL | UNSUPPORTED
+  description    String?
+  docsUrl        String?
+  builtin        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manufacturer Manufacturer?   @relation(fields: [manufacturerId], references: [id])
+  versions     DriverVersion[]
+  profiles     DeviceProfile[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@map("protocol_drivers")
+}
+
+// 12. 드라이버 버전 (버전 고정·검증·롤백)
+model DriverVersion {
+  id          String   @id @default(cuid())
+  tenantId    String
+  driverId    String
+  version     String
+  changelog   String?
+  config      Json?
+  status      String   @default("DRAFT") // DRAFT | VALIDATED | ACTIVE | DEPRECATED | ROLLED_BACK
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  driver    ProtocolDriver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  createdBy User?          @relation(fields: [createdById], references: [id])
+  profiles  DeviceProfile[]
+
+  @@unique([driverId, version])
+  @@index([tenantId])
+  @@map("driver_versions")
+}
+
+// 13. 장치 프로파일 (프로토콜 자동등록 초안 포함)
+model DeviceProfile {
+  id              String   @id @default(cuid())
+  tenantId        String
+  manufacturerId  String?
+  modelId         String?
+  driverId        String?
+  driverVersionId String?
+  name            String
+  protocolKey     String
+  transport       String
+  settings        Json? // ip, port, slaveId, timeout, retry, byteOrder, wordOrder 등
+  registerMap     Json? // [{name,address,functionCode,dataType,scale,unit,unitId}]
+  source          String   @default("MANUAL") // CATALOG | MANUAL_UPLOAD | CUSTOM_FRAME | MANUAL
+  documentId      String?
+  reviewStatus    String   @default("APPROVED") // DRAFT | PENDING_REVIEW | APPROVED | REJECTED
+  confidence      Float?
+  notes           String?
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manufacturer Manufacturer?     @relation(fields: [manufacturerId], references: [id])
+  model        DeviceModel?      @relation(fields: [modelId], references: [id])
+  driver       ProtocolDriver?   @relation(fields: [driverId], references: [id])
+  driverVersion DriverVersion?   @relation(fields: [driverVersionId], references: [id])
+  document     ProtocolDocument? @relation(fields: [documentId], references: [id])
+  createdBy    User?             @relation(fields: [createdById], references: [id])
+  devices      Device[]
+
+  @@index([tenantId])
+  @@map("device_profiles")
+}
+
+// 14. 게이트웨이 / 이더넷 통신변환기
+model Gateway {
+  id         String    @id @default(cuid())
+  tenantId   String
+  siteId     String
+  name       String
+  serial     String    @unique
+  kind       String    @default("EDGE") // EDGE | ETHERNET_CONVERTER
+  mode       String    @default("TCP_CLIENT") // TCP_SERVER | TCP_CLIENT | UDP | VIRTUAL_COM | SERIAL_TUNNEL | MODBUS_GATEWAY | VENDOR
+  convertsProtocol Boolean @default(false)
+  host       String?
+  port       Int?
+  tokenHash  String?
+  status     String    @default("OFFLINE") // ONLINE | OFFLINE | DEGRADED
+  lastSeenAt DateTime?
+  bufferDepth Int      @default(0)
+  firmware   String?
+  config     Json?
+  createdAt  DateTime  @default(now())
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site        Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  devices     Device[]
+  serialBuses SerialBus[]
+
+  @@index([tenantId])
+  @@map("gateways")
+}
+
+// 15. 장치 (PLC / RTU / 계량기 / 보호계전기 등)
+model Device {
+  id            String    @id @default(cuid())
+  tenantId      String
+  siteId        String
+  buildingId    String?
+  floorId       String?
+  unitId        String?
+  gatewayId     String?
+  serialBusId   String?
+  profileId     String?
+  manufacturerId String?
+  modelId       String?
+  name          String
+  deviceType    String // PLC | RTU | METER | PROTECTION_RELAY | UPS | GENERATOR | INVERTER | ESS | EV_CHARGER | CONVERTER
+  serialNumber  String?
+  firmware      String?
+  protocolKey   String
+  host          String?
+  port          Int?
+  slaveId       Int?
+  stationNo     Int?
+  rack          Int?
+  slot          Int?
+  pollingMs     Int       @default(1000)
+  timeoutMs     Int       @default(1000)
+  retryCount    Int       @default(2)
+  credentialEnc String?
+  description   String?
+  enabled       Boolean   @default(true)
+  quality       String    @default("UNKNOWN") // GOOD | UNCERTAIN | BAD | STALE | UNKNOWN
+  lastSeenAt    DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site        Site           @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  building    Building?      @relation(fields: [buildingId], references: [id])
+  floor       Floor?         @relation(fields: [floorId], references: [id])
+  unit        Unit?          @relation(fields: [unitId], references: [id])
+  gateway     Gateway?       @relation(fields: [gatewayId], references: [id])
+  serialBus   SerialBus?     @relation(fields: [serialBusId], references: [id])
+  profile     DeviceProfile? @relation(fields: [profileId], references: [id])
+  manufacturer Manufacturer? @relation(fields: [manufacturerId], references: [id])
+  model       DeviceModel?   @relation(fields: [modelId], references: [id])
+  connections DeviceConnection[]
+  tags        DeviceTag[]
+  readings    MeterReading[]
+  adjustments MeterAdjustment[]
+  alarms      AlarmEvent[]
+  commands    ControlCommand[]
+
+  @@index([tenantId, siteId])
+  @@map("devices")
+}
+
+// 16. 장치 연결 이력
+model DeviceConnection {
+  id          String    @id @default(cuid())
+  tenantId    String
+  deviceId    String
+  transport   String
+  host        String?
+  port        Int?
+  status      String    @default("CONNECTING") // CONNECTING | CONNECTED | CLOSED | ERROR
+  lastError   String?
+  connectedAt DateTime?
+  closedAt    DateTime?
+  stats       Json?
+  createdAt   DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, deviceId])
+  @@map("device_connections")
+}
+
+// 17. 시리얼 버스 (RS-485 공유)
+model SerialBus {
+  id         String   @id @default(cuid())
+  tenantId   String
+  gatewayId  String
+  name       String
+  port       String?
+  baudRate   Int      @default(9600)
+  parity     String   @default("N")
+  dataBits   Int      @default(8)
+  stopBits   Int      @default(1)
+  mode       String   @default("RTU") // RTU | ASCII
+  pollGapMs  Int      @default(50)
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  gateway Gateway @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+  devices Device[]
+
+  @@index([tenantId])
+  @@map("serial_buses")
+}
+
+// 18. 태그 / 레지스터
+model DeviceTag {
+  id           String    @id @default(cuid())
+  tenantId     String
+  siteId       String
+  deviceId     String
+  key          String
+  name         String
+  address      Int
+  functionCode Int       @default(3)
+  dataType     String    @default("FLOAT32") // BOOL | INT16 | UINT16 | INT32 | UINT32 | FLOAT32 | FLOAT64 | STRING | BITFIELD | ENUM | TIMESTAMP
+  unit         String?
+  scale        Float     @default(1)
+  offset       Float     @default(0)
+  byteOrder    String    @default("AB") // AB | BA
+  wordOrder    String    @default("ABCD") // ABCD | CDAB | BADC | DCBA
+  pollingMs    Int       @default(1000)
+  writable     Boolean   @default(false)
+  minValue     Float?
+  maxValue     Float?
+  alarmHigh    Float?
+  alarmLow     Float?
+  deadband     Float?
+  standardKey  String? // VOLTAGE_A, CURRENT_A, ACTIVE_POWER, PF, FREQ, ENERGY_IMPORT ...
+  quality      String    @default("UNKNOWN")
+  lastValue    Float?
+  lastValueText String?
+  lastReadAt   DateTime?
+  enabled      Boolean   @default(true)
+  description  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  device    Device       @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  readings  TagReading[]
+  mappings  TagMapping[]
+  alarms    AlarmEvent[]
+  elements  DiagramElement[]
+
+  @@unique([deviceId, key])
+  @@index([tenantId, siteId])
+  @@index([tenantId, standardKey])
+  @@map("device_tags")
+}
+
+// 19. 태그 매핑 (대시보드/도면/자산 연결)
+model TagMapping {
+  id       String @id @default(cuid())
+  tenantId String
+  tagId    String
+  target   String // ASSET | DIAGRAM_ELEMENT | DASHBOARD | REPORT
+  targetId String
+  field    String @default("value")
+  transform String?
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tag    DeviceTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, target, targetId])
+  @@map("tag_mappings")
+}
+
+// 20. 태그 시계열 데이터
+model TagReading {
+  id      String   @id @default(cuid())
+  tenantId String
+  siteId  String
+  tagId   String
+  ts      DateTime @default(now())
+  value   Float?
+  quality String   @default("GOOD")
+  raw     Json?
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tag    DeviceTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@index([tagId, ts])
+  @@index([tenantId, ts])
+  @@map("tag_readings")
+}
+
+// 21. 검침 원본
+model MeterReading {
+  id         String   @id @default(cuid())
+  tenantId   String
+  siteId     String
+  buildingId String?
+  unitId     String?
+  deviceId   String?
+  meterKind  String   @default("ELECTRICITY") // ELECTRICITY | WATER | GAS | HEAT | HVAC
+  readingAt  DateTime
+  value      Float
+  previousValue Float?
+  source     String   @default("AUTO") // AUTO | MANUAL | IMPORT | ESTIMATED
+  periodKey  String? // YYYY-MM
+  note       String?
+  createdAt  DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  building Building? @relation(fields: [buildingId], references: [id])
+  unit     Unit?     @relation(fields: [unitId], references: [id])
+  device   Device?   @relation(fields: [deviceId], references: [id])
+  adjustments MeterAdjustment[]
+
+  @@unique([tenantId, deviceId, readingAt])
+  @@index([tenantId, siteId, readingAt])
+  @@index([tenantId, periodKey])
+  @@map("meter_readings")
+}
+
+// 22. 검침 보정
+model MeterAdjustment {
+  id             String   @id @default(cuid())
+  tenantId       String
+  meterReadingId String?
+  deviceId       String?
+  unitId         String?
+  kind           String   // CORRECTION | ROLLOVER | REPLACEMENT | ESTIMATE
+  deltaValue     Float
+  reason         String
+  approvedById   String?
+  createdAt      DateTime @default(now())
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reading  MeterReading? @relation(fields: [meterReadingId], references: [id], onDelete: SetNull)
+  device   Device?       @relation(fields: [deviceId], references: [id])
+  unit     Unit?         @relation(fields: [unitId], references: [id])
+
+  @@index([tenantId, deviceId])
+  @@map("meter_adjustments")
+}
+
+// 23. 요금표 버전
+model TariffVersion {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  version       Int      @default(1)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  currency      String   @default("KRW")
+  config        Json // {customerType, baseRatePerKw, energyTiers:[{limit,rate}], tou:[{start,end,rate}], vatRate, climateRate, fuelAdjustment}
+  status        String   @default("DRAFT") // DRAFT | ACTIVE | RETIRED
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, name, version])
+  @@index([tenantId, status])
+  @@map("tariff_versions")
+}
+
+// 24. 전력설비 자산
+model ElectricalAsset {
+  id          String   @id @default(cuid())
+  tenantId    String
+  siteId      String
+  buildingId  String?
+  parentId    String?
+  code        String
+  name        String
+  assetType   String // INCOMING | TRANSFORMER | VCB | ACB | MCCB | ATS | PROTECTION_RELAY | GENERATOR | UPS | BATTERY | PANEL | METER | PV_INVERTER | ESS | EV_CHARGER
+  ratedCapacity String?
+  voltage     String?
+  phases      Int?
+  location    String?
+  status      String   @default("NORMAL") // NORMAL | WARNING | TRIP | OFFLINE | UNKNOWN
+  breakerState String  @default("UNKNOWN") // OPEN | CLOSED | TRIP | UNKNOWN
+  remoteControlEnabled Boolean @default(false)
+  interlocks  Json?
+  tagIds      String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site      Site            @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  building  Building?       @relation(fields: [buildingId], references: [id])
+  parent    ElectricalAsset? @relation("AssetTree", fields: [parentId], references: [id])
+  children  ElectricalAsset[] @relation("AssetTree")
+  elements  DiagramElement[]
+  alarms    AlarmEvent[]
+  commands  ControlCommand[]
+
+  @@unique([siteId, code])
+  @@index([tenantId, siteId])
+  @@map("electrical_assets")
+}
+
+// 25. 단선결선도
+model Diagram {
+  id           String   @id @default(cuid())
+  tenantId     String
+  siteId       String
+  name         String
+  description  String?
+  version      Int      @default(1)
+  backgroundUrl String?
+  canvas       Json?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site     Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  createdBy User?           @relation(fields: [createdById], references: [id])
+  elements DiagramElement[]
+
+  @@index([tenantId, siteId])
+  @@map("diagrams")
+}
+
+// 26. 단선결선도 요소
+model DiagramElement {
+  id          String   @id @default(cuid())
+  tenantId    String
+  diagramId   String
+  elementKey  String
+  symbolType  String // BREAKER | TRANSFORMER | GENERATOR | BUS | METER | UPS | PV | ESS | EV | LOAD | TEXT | LINE
+  label       String?
+  x           Float    @default(0)
+  y           Float    @default(0)
+  width       Float    @default(80)
+  height      Float    @default(60)
+  rotation    Float    @default(0)
+  assetId     String?
+  tagId       String?
+  props       Json?
+  zIndex      Int      @default(1)
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  diagram Diagram        @relation(fields: [diagramId], references: [id], onDelete: Cascade)
+  asset   ElectricalAsset? @relation(fields: [assetId], references: [id])
+  tag     DeviceTag?     @relation(fields: [tagId], references: [id])
+
+  @@unique([diagramId, elementKey])
+  @@index([tenantId])
+  @@map("diagram_elements")
+}
+
+// 27. 알람 규칙
+model AlarmRule {
+  id          String   @id @default(cuid())
+  tenantId    String
+  siteId      String?
+  name        String
+  targetType  String   @default("TAG") // TAG | DEVICE | ASSET
+  targetId    String?
+  condition   String   @default("GT") // GT | LT | EQ | NE | OUT_OF_RANGE | COMM_FAIL | TRIP | MISSING_READING | RATE_OF_CHANGE
+  threshold   Float?
+  threshold2  Float?
+  durationSec Int      @default(0)
+  severity    String   @default("WARNING") // INFO | WARNING | MAJOR | CRITICAL
+  enabled     Boolean  @default(true)
+  channels    String[] @default(["INAPP"])
+  assigneeId  String?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site   Site?        @relation(fields: [siteId], references: [id])
+  events AlarmEvent[]
+
+  @@index([tenantId, enabled])
+  @@map("alarm_rules")
+}
+
+// 28. 알람 이벤트
+model AlarmEvent {
+  id             String    @id @default(cuid())
+  tenantId       String
+  siteId         String
+  ruleId         String?
+  deviceId       String?
+  assetId        String?
+  tagId          String?
+  severity       String    @default("WARNING")
+  code           String
+  title          String
+  message        String?
+  status         String    @default("ACTIVE") // ACTIVE | ACK | ASSIGNED | RESOLVED
+  occurredAt     DateTime  @default(now())
+  acknowledgedAt DateTime?
+  acknowledgedById String?
+  assignedToId   String?
+  resolvedAt     DateTime?
+  resolution     String?
+  repeatCount    Int       @default(1)
+  value          Float?
+  createdAt      DateTime  @default(now())
+
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  site         Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  rule         AlarmRule? @relation(fields: [ruleId], references: [id])
+  device       Device?   @relation(fields: [deviceId], references: [id])
+  asset        ElectricalAsset? @relation(fields: [assetId], references: [id])
+  tag          DeviceTag? @relation(fields: [tagId], references: [id])
+  acknowledgedBy User?   @relation("AlarmAck", fields: [acknowledgedById], references: [id])
+  assignedTo   User?     @relation("AlarmAssignee", fields: [assignedToId], references: [id])
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, status])
+  @@map("alarm_events")
+}
+
+// 29. 제어 명령
+model ControlCommand {
+  id               String   @id @default(cuid())
+  tenantId         String
+  siteId           String
+  assetId          String
+  deviceId         String?
+  command          String // OPEN | CLOSE | START | STOP | SETPOINT | LOAD_SHED | SCHEDULE
+  payload          Json?
+  requestedById    String?
+  status           String   @default("REQUESTED") // REQUESTED | APPROVED | REJECTED | SENDING | SENT | FEEDBACK_OK | FEEDBACK_FAIL | UNCERTAIN | CANCELED | EXPIRED
+  requiredApprovals Int     @default(2)
+  idempotencyKey   String   @unique
+  reason           String?
+  localRemoteState String?  // REMOTE | LOCAL | UNKNOWN
+  interlockCheck   Json?
+  sentAt           DateTime?
+  completedAt      DateTime?
+  finalState       String?
+  errorMessage     String?
+  expiresAt        DateTime?
+  createdAt        DateTime @default(now())
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asset     ElectricalAsset @relation(fields: [assetId], references: [id])
+  device    Device?         @relation(fields: [deviceId], references: [id])
+  requestedBy User?         @relation(fields: [requestedById], references: [id])
+  approvals ControlApproval[]
+  feedbacks ControlFeedback[]
+
+  @@index([tenantId, status])
+  @@map("control_commands")
+}
+
+// 30. 제어 이중 승인
+model ControlApproval {
+  id         String   @id @default(cuid())
+  tenantId   String
+  commandId  String
+  approverId String?
+  decision   String   @default("APPROVED") // APPROVED | REJECTED
+  comment    String?
+  decidedAt  DateTime @default(now())
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  command ControlCommand @relation(fields: [commandId], references: [id], onDelete: Cascade)
+  approver User?         @relation(fields: [approverId], references: [id])
+
+  @@unique([commandId, approverId])
+  @@index([tenantId])
+  @@map("control_approvals")
+}
+
+// 31. 제어 피드백
+model ControlFeedback {
+  id          String   @id @default(cuid())
+  tenantId    String
+  commandId   String
+  ts          DateTime @default(now())
+  state       String // ACK | POSITION_OPEN | POSITION_CLOSED | RUNNING | STOPPED | FAILED | TIMEOUT
+  measured    Json?
+  detail      String?
+  success     Boolean  @default(false)
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  command ControlCommand @relation(fields: [commandId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, commandId])
+  @@map("control_feedback")
+}
+
+// 32. 감사 로그
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  actorId    String?
+  actorName  String
+  action     String
+  targetType String
+  targetId   String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+// 33. 라이선스
+model License {
+  id         String   @id @default(cuid())
+  tenantId   String
+  licenseKey String   @unique
+  edition    String   @default("STANDARD") // TRIAL | STANDARD | PROFESSIONAL | ENTERPRISE
+  maxSites   Int      @default(1)
+  maxDevices Int      @default(100)
+  maxTags    Int      @default(10000)
+  issuedAt   DateTime @default(now())
+  expiresAt  DateTime?
+  status     String   @default("ACTIVE") // ACTIVE | EXPIRED | REVOKED | TRIAL
+  features   String[] @default([])
+  hardwareId String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@index([tenantId])
+  @@map("licenses")
+}

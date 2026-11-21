@@ -1,0 +1,130 @@
+@import "tailwindcss";
+
+:root {
+  --eum-bg: #071019;
+  --eum-panel: #0d1a26;
+  --eum-panel-2: #122334;
+  --eum-line: #1e3a52;
+  --eum-text: #dbe9f4;
+  --eum-muted: #7f9bb3;
+  --eum-accent: #23c3e6;
+  --eum-good: #2fbf71;
+  --eum-warn: #f0b429;
+  --eum-bad: #e5574b;
+}
+
+html,
+body {
+  background: var(--eum-bg);
+  color: var(--eum-text);
+  font-family: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.eum-panel {
+  background: var(--eum-panel);
+  border: 1px solid var(--eum-line);
+  border-radius: 10px;
+}
+
+.eum-input {
+  width: 100%;
+  background: #0a1622;
+  border: 1px solid var(--eum-line);
+  border-radius: 7px;
+  padding: 8px 10px;
+  color: var(--eum-text);
+  font-size: 13px;
+  outline: none;
+}
+.eum-input:focus {
+  border-color: var(--eum-accent);
+}
+.eum-input::placeholder {
+  color: #4d6b82;
+}
+
+.eum-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 7px;
+  padding: 8px 13px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--eum-line);
+  background: #13283a;
+  color: var(--eum-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.eum-btn:hover {
+  border-color: var(--eum-accent);
+}
+.eum-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.eum-btn-primary {
+  background: linear-gradient(180deg, #149cc0, #0d7a99);
+  border-color: #1bb2d5;
+  color: #04121a;
+}
+.eum-btn-danger {
+  background: #3a1717;
+  border-color: #7a2c2c;
+  color: #ffb0a8;
+}
+
+table.eum-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+table.eum-table th {
+  text-align: left;
+  color: var(--eum-muted);
+  font-weight: 600;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--eum-line);
+  white-space: nowrap;
+  background: #0b1824;
+  position: sticky;
+  top: 0;
+}
+table.eum-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #14293b;
+  vertical-align: middle;
+}
+table.eum-table tr:hover td {
+  background: #101f2e;
+}
+
+.eum-scroll {
+  overflow: auto;
+}
+
+@media print {
+  body {
+    background: #fff;
+    color: #111;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .eum-panel {
+    border-color: #ccc;
+    background: #fff;
+    color: #111;
+  }
+  table.eum-table th,
+  table.eum-table td {
+    color: #111;
+    background: #fff;
+    border-color: #ddd;
+  }
+}

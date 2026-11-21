@@ -1,0 +1,79 @@
+services:
+  db:
+    # 기본은 표준 PostgreSQL. TimescaleDB를 쓰려면 DB_IMAGE=timescale/timescaledb:latest-pg16 로 지정하세요.
+    image: ${DB_IMAGE:-postgres:18-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eumbms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-db-password}
+      POSTGRES_DB: ${POSTGRES_DB:-eumbms}
+      TZ: Asia/Seoul
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eumbms} -d ${POSTGRES_DB:-eumbms}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-eumbms}:${POSTGRES_PASSWORD:-change-me-db-password}@db:5432/${POSTGRES_DB:-eumbms}?schema=public
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET required}
+      APP_NAME: EUMBMS
+      ENABLE_COLLECTOR: "0"
+      TZ: Asia/Seoul
+    ports:
+      - "3000:3000"
+    command: sh -c "npx prisma migrate deploy && npm start"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # 현장 게이트웨이 (중앙 서버와 분리된 현장 PC에서 실행 권장)
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["gateway"]
+    restart: unless-stopped
+    depends_on:
+      - server
+    environment:
+      EUMBMS_CENTRAL_URL: ${EUMBMS_CENTRAL_URL:-http://server:3000}
+      EUMBMS_GATEWAY_TOKEN: ${EUMBMS_GATEWAY_TOKEN:?EUMBMS_GATEWAY_TOKEN required}
+      EUMBMS_POLL_MS: ${EUMBMS_POLL_MS:-2000}
+      EUMBMS_BUFFER_DIR: /data/queue
+      TZ: Asia/Seoul
+    volumes:
+      - gateway-queue:/data/queue
+    command: npx tsx gateway/agent.ts
+
+  # 선택: 로컬 데모용 Modbus 시뮬레이터
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["demo"]
+    environment:
+      TZ: Asia/Seoul
+    ports:
+      - "15020:15020"
+      - "15021:15021"
+    command: npx tsx scripts/demo-simulator.ts
+
+volumes:
+  db-data:
+  gateway-queue:

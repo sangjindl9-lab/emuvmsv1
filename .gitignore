@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+.env
+.env.local
+.env.*.local
+*.log
+pgdata/
+.vault-test/
+gateway/.queue/
+tsconfig.tsbuildinfo
+.DS_Store
