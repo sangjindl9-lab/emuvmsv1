@@ -134,6 +134,7 @@ export default function DiagramEditorPage() {
   const [scale, setScale] = useState(1);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [background, setBackground] = useState("");
   const [saving, setSaving] = useState(false);
   const drag = useRef<{ key: string; offsetX: number; offsetY: number } | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -143,6 +144,7 @@ export default function DiagramEditorPage() {
       setElements(data.elements.map((el) => ({ ...el, props: (el.props ?? {}) as Record<string, unknown> })));
       setDirty(false);
     }
+    if (data) setBackground(data.backgroundUrl ?? "");
   }, [data]);
 
   const canvas = useMemo(() => ({ width: data?.canvas?.width ?? 1600, height: data?.canvas?.height ?? 900 }), [data]);
@@ -338,6 +340,24 @@ export default function DiagramEditorPage() {
               <Button variant="danger" onClick={remove}>요소 삭제</Button>
             </div>
           )}
+          <div className="border-t border-[var(--eum-line)] pt-2">
+            <Field label="도면 배경 URL (PDF/CAD 변환 이미지)">
+              <input className="eum-input" value={background} onChange={(e) => setBackground(e.target.value)} placeholder="https://.../drawing.png" />
+            </Field>
+            <Button
+              onClick={async () => {
+                try {
+                  await api(`diagrams/${id}`, { method: "PATCH", body: { backgroundUrl: background } });
+                  setMessage("배경이 적용되었습니다. 새로고침합니다.");
+                  window.location.reload();
+                } catch (err) {
+                  setMessage((err as Error).message);
+                }
+              }}
+            >
+              배경 적용
+            </Button>
+          </div>
           <div className="border-t border-[var(--eum-line)] pt-2 text-[10px] leading-relaxed text-[var(--eum-muted)]">
             차단기 색상: 계통 정상(CLOSED) 초록, 개방(OPEN) 회색, 트립(TRIP) 빨강. 자산을 연결하면 실시간 상태가 반영됩니다.<br />
             PDF/CAD 도면 배경은 상단 API(PATCH diagrams/:id)의 backgroundUrl로 등록할 수 있습니다.

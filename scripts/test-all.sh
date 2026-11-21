@@ -34,6 +34,7 @@ trap cleanup EXIT INT TERM
 set +e
 node scripts/smoke-http.mjs
 SMOKE=$?
+node scripts/smoke-pages.mjs || SMOKE=1
 set -e
 if [ "$SMOKE" -ne 0 ]; then
   echo "── next 로그 (마지막 40줄) ──"

@@ -66,6 +66,7 @@ curl -c cookie.txt -X POST https://bms.example.com/api/v1/auth/login \
 | GET/POST | `/serial-buses` | RS-485 공유 버스 목록/등록 |
 | GET/POST | `/devices` | 장치 목록/등록 (`?siteId=&q=`) |
 | GET/PATCH/DELETE | `/devices/:id` | 상세/수정/비활성화 |
+| GET | `/devices/:id/profile` | 장치·태그·프로파일 JSON 내보내기 |
 | POST | `/devices/:id/test` | 실제 연결 시험 + 샘플 태그 읽기 |
 | POST | `/devices/:id/read` | 즉시 1회 수집 |
 | POST | `/devices/:id/clone` | 장치 설정·태그 복제 |
@@ -235,4 +236,4 @@ curl -b approver.txt -X POST .../control/commands/<id>/execute
 
 ## 총 API 수
 
-110개 엔드포인트(메서드+경로 기준)가 구현되어 있습니다.
+111개 엔드포인트(메서드+경로 기준)가 구현되어 있습니다.

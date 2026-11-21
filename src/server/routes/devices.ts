@@ -344,6 +344,53 @@ export const routes: RouteDef[] = [
     },
   },
   {
+    method: "GET",
+    pattern: "devices/:id/profile",
+    handler: async ({ session, path }) => {
+      const device = await prisma.device.findFirst({
+        where: { id: path[1], tenantId: session.tid },
+        include: { tags: true, profile: true, manufacturer: true, model: true, gateway: true },
+      });
+      if (!device) throw new HttpError(404, "장치를 찾을 수 없습니다.");
+      return {
+        format: "eumbms-device-profile/v1",
+        exportedAt: new Date().toISOString(),
+        device: {
+          name: device.name,
+          deviceType: device.deviceType,
+          protocolKey: device.protocolKey,
+          host: device.host,
+          port: device.port,
+          slaveId: device.slaveId,
+          pollingMs: device.pollingMs,
+          timeoutMs: device.timeoutMs,
+          retryCount: device.retryCount,
+          manufacturer: device.manufacturer?.name ?? null,
+          model: device.model?.name ?? null,
+          gateway: device.gateway?.serial ?? null,
+        },
+        tags: device.tags.map((tag) => ({
+          key: tag.key,
+          name: tag.name,
+          address: tag.address,
+          functionCode: tag.functionCode,
+          dataType: tag.dataType,
+          unit: tag.unit,
+          scale: tag.scale,
+          offset: tag.offset,
+          byteOrder: tag.byteOrder,
+          wordOrder: tag.wordOrder,
+          pollingMs: tag.pollingMs,
+          writable: tag.writable,
+          standardKey: tag.standardKey,
+          alarmHigh: tag.alarmHigh,
+          alarmLow: tag.alarmLow,
+        })),
+        profile: device.profile ? { name: device.profile.name, registerMap: device.profile.registerMap, settings: device.profile.settings } : null,
+      };
+    },
+  },
+  {
     method: "POST",
     pattern: "devices/:id/test",
     handler: async ({ session, path }) => {

@@ -55,11 +55,13 @@ export default function DevicesPage() {
           { key: "endpoint", label: "통신", render: (row) => `${row.host ?? "-"}:${row.port ?? "-"} / ID ${row.slaveId ?? "-"}` },
           { key: "tags", label: "태그", render: (row) => String((row._count as { tags?: number })?.tags ?? 0) },
           { key: "quality", label: "품질", render: (row) => <Badge value={String(row.quality)} /> },
+          { key: "lastError", label: "최근 오류", render: (row) => <span className="text-[10px] text-[#ffb0a8]">{row.lastError ? String(row.lastError).slice(0, 40) : "-"}</span> },
           { key: "site", label: "사업장", render: (row) => String((row.site as { name?: string })?.name ?? "-") },
           { key: "actions", label: "통신", render: (row) => (
             <div className="flex gap-2">
               <button className="text-[11px] text-[var(--eum-accent)] hover:underline" onClick={() => void action(`devices/${String(row.id)}/test`, "연결 시험")}>시험</button>
               <button className="text-[11px] text-[#7fd6ef] hover:underline" onClick={() => void action(`devices/${String(row.id)}/read`, "즉시 수집")}>수집</button>
+              <a className="text-[11px] text-[var(--eum-muted)] hover:underline" href={`/api/v1/devices/${String(row.id)}/profile`} download>프로파일</a>
             </div>
           )},
         ]}

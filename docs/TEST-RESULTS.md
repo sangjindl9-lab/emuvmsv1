@@ -12,6 +12,7 @@ DB: `eumbms_test` (마이그레이션 + 시드 적용)
 | 단위·소켓 테스트 (Vitest) | **34 / 34 통과** (3 files) |
 | 프로덕션 빌드 (`next build`) | **성공** (21 routes) |
 | HTTP 통합 스모크 (실제 `next start` + PostgreSQL) | **28 / 28 통과** |
+| 18개 메뉴 + 도면 편집 페이지 렌더링 | **19 / 19 통과** (HTTP 200) |
 | Modbus TCP 실소켓 통신 | 통과 (수집값 220.6V, 품질 GOOD) |
 | Modbus RTU over TCP 실소켓 | 통과 |
 | Modbus ASCII over TCP 실소켓 | 통과 |
@@ -94,6 +95,14 @@ sh scripts/test-all.sh              # 위 전체 + next start + 시뮬레이터 
 | 26 | 조회자 사업장 등록 차단 | PASS (403) |
 | 27 | 검침 CSV 보고서 | PASS (12행) |
 | 28 | 제어 감사로그 | PASS |
+
+## 4-1. 페이지 렌더링
+
+로그인 세션으로 18개 메뉴(`/`, `/sites`, `/buildings`, `/scada`, `/diagrams`, `/devices`, `/gateways`, `/protocols`, `/tags`, `/metering`, `/tariffs`, `/energy`, `/alarms`, `/control`, `/reports`, `/users`, `/settings`, `/licenses`)와 단선결선도 편집(`/diagrams/[id]`)을 요청해 모두 HTTP 200으로 렌더링됨을 확인했습니다.
+
+```bash
+node scripts/smoke-pages.mjs   # 19/19 PASS
+```
 
 ## 5. 실장비 검증 현황
 
