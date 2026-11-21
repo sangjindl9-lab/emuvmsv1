@@ -19,6 +19,41 @@ type LiveTag = {
 
 type Asset = { id: string; name: string; code: string; assetType: string; status: string; breakerState: string; site: { name: string }; remoteControlEnabled: boolean };
 
+function TrendChart({ points, unit }: { points: { ts: string; value: number | null }[]; unit: string }) {
+  const values = points.map((point) => point.value ?? 0);
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const width = 900;
+  const height = 160;
+  const step = width / Math.max(1, points.length - 1);
+  const path = values
+    .map((value, index) => `${index === 0 ? "M" : "L"} ${(index * step).toFixed(1)} ${(height - ((value - min) / range) * (height - 20) - 10).toFixed(1)}`)
+    .join(" ");
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-[10px] text-[var(--eum-muted)]">
+        <span>{new Date(points[0].ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</span>
+        <span>최대 {formatNumber(max, 2)} {unit} · 최소 {formatNumber(min, 2)} {unit}</span>
+        <span>{new Date(points[points.length - 1].ts).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</span>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="none">
+        {[0.25, 0.5, 0.75].map((ratio) => (
+          <line key={ratio} x1={0} y1={height * ratio} x2={width} y2={height * ratio} stroke="#152b3d" strokeWidth={1} />
+        ))}
+        <path d={`${path} L ${width} ${height} L 0 ${height} Z`} fill="url(#trendFill)" opacity={0.25} />
+        <path d={path} fill="none" stroke="#23c3e6" strokeWidth={2} />
+        <defs>
+          <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#23c3e6" />
+            <stop offset="100%" stopColor="#0a1723" />
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+  );
+}
+
 export default function ScadaPage() {
   const { data, error, loading, reload } = useApi<{ items: LiveTag[]; at: string }>("live", { pollMs: 5000 });
   const assets = useApi<{ items: Asset[] }>("assets", { pollMs: 15000 });
@@ -42,6 +77,12 @@ export default function ScadaPage() {
   };
 
   const tags = data?.items ?? [];
+  const trendTag = tags.find((tag) => tag.standardKey === "ACTIVE_POWER") ?? tags.find((tag) => tag.unit === "kW") ?? tags[0];
+  const trends = useApi<{ series: Record<string, { ts: string; value: number | null }[]> }>(
+    trendTag ? `trends?tagIds=${trendTag.id}&hours=1` : null,
+    { pollMs: 15000, deps: [trendTag?.id] },
+  );
+  const trendPoints = (trendTag ? trends.data?.series?.[trendTag.id] ?? [] : []).filter((point) => point.value !== null);
   const groups = tags.reduce<Record<string, LiveTag[]>>((acc, tag) => {
     (acc[tag.device?.name ?? "미지정"] ??= []).push(tag);
     return acc;
@@ -124,6 +165,14 @@ export default function ScadaPage() {
           )}
         </Card>
       </div>
+
+      <Card title={`실시간 트렌드${trendTag ? ` — ${trendTag.name}` : ""}`} actions={<span className="text-[10px] text-[var(--eum-muted)]">최근 1시간 · {trendPoints.length}점</span>}>
+        {trendPoints.length < 2 ? (
+          <Empty>트렌드 데이터가 부족합니다. 수집을 실행하면 시계열이 쌓입니다.</Empty>
+        ) : (
+          <TrendChart points={trendPoints} unit={trendTag?.unit ?? ""} />
+        )}
+      </Card>
 
       <Card title="수집 엔진 상태">
         <div className="grid gap-3 text-[11.5px] sm:grid-cols-3">
